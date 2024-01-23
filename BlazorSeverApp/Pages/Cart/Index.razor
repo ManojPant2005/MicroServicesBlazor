@@ -1,0 +1,192 @@
+﻿@page "/cart"
+@using BlazorSeverApp.Data.Dtos
+@using BlazorSeverApp.Services.IServices
+@inject ICartService _cartService
+@inject AuthenticationStateProvider _authStateProvider
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _js
+@* @attribute [Authorize] *@
+
+<PageTitle>@_title</PageTitle>
+
+    <h3>@_title</h3>
+
+@if (string.IsNullOrEmpty(_error) == false)
+{
+    <p class="text-danger">@_error</p>
+}
+
+@if (_model == null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (_model.CartDetailDtos.Any() == false)
+{
+    <p>Please add items to cart</p>
+}
+else
+{
+    <div>
+        <p>UserId: @_model.UserId</p>
+        <p>CouponCode: @_model.CouponCode</p>
+        <p>Discount: @_model.Discount.ToString("c")</p>
+        <p>Total: @_model.Total.ToString("c")</p>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <input class="form-control" @bind="_model.CouponCode" />
+        </div>
+        <div class="col-md-3">
+            @if (string.IsNullOrEmpty(_model.CouponCode))
+            {
+                <button class="btn btn-sm btn-primary" title="Apply Coupon" @onclick="@(async ()=> await applyCoupon(_model))">
+                    Apply Coupon
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-danger" title="Remove Coupon" @onclick="@(async ()=> await removeCoupon(_model))">
+                    Remove Coupon
+                </button>
+            }
+        </div>
+
+    </div>
+
+    <hr />
+
+    <div class="table-responsive">
+        <table class="table table-hover table-sm">
+            <caption>List of products in Cart</caption>
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>ProductId</th>
+                    <th>Product Name</th>
+                    <th>Category Name</th>
+                    <th>Product Image</th>
+                    <th>Product Count</th>
+                    <th>Product Price</th>
+                    <th>Cart Count</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _model.CartDetailDtos)
+                {
+                    <tr>
+                        <td>@item.Id</td>
+                        <td>@item.ProductId</td>
+                        <td>@item.Product.Name</td>
+                        <td>@item.Product.CategoryName</td>
+                        <td>@item.Product.ImageUrl</td>
+                        <td>@item.Product.Count</td>
+                        <td>@item.Product.Price.ToString("c")</td>
+                        <td>@item.Count</td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" title="Remove" @onclick="@(async ()=> await remove(item.Id))">
+                                <span class="oi oi-trash" aria-hidden="true"></span>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private string _title = "Cart Index";
+    private CartDto? _model = null;
+    private bool _isAdmin = false;
+    private string? _error = string.Empty;
+    private ClaimsPrincipal? _user;
+    private string _userId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authStateProvider = await _authStateProvider.GetAuthenticationStateAsync();
+        _user = authStateProvider.User;
+        if (_user.Identity!.IsAuthenticated)
+        {
+            _isAdmin = _user.FindFirst("role")!.Value == "Admins";
+            _userId = _user.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Sid).Value;
+            await load();
+        }
+        else
+        {
+            _navigationManager.NavigateTo("login");
+        }
+    }
+
+    private async Task load()
+    {
+        _error = string.Empty;
+        var response = await _cartService.GetCartByUserId(_userId);
+        if (response is not null && response.IsSuccessful)
+        {
+            _model = JsonConvert.DeserializeObject<CartDto>(Convert.ToString(response.Result));
+        }
+        else
+        {
+            _error = response is null ? "Error loading data" : "";
+            // _error = response is null ? "Error loading data" : "Error loading data: " + response.Message;
+        }
+
+        if (_model is null)
+        {
+            _model = new();
+        }
+
+    }
+
+    private async Task remove(int cartDetailId)
+    {
+        _error = string.Empty;
+        if (await _js.InvokeAsync<bool>("confirm", "Are you sure deleting this item?"))
+        {
+            var response = await _cartService.Remove(cartDetailId);
+            if (response is not null && response.IsSuccessful)
+            {
+                await load();
+            }
+            else
+            {
+                _error = response is null ? "Error removing Cart Detail" : "Error removing Cart Detail: " + response.Message;
+            }
+        }
+    }
+
+    private async Task applyCoupon(CartDto cartDto)
+    {
+        _error = string.Empty;
+        var response = await _cartService.ApplyCoupon(cartDto);
+        if (response is not null && response.IsSuccessful)
+        {
+            await load();
+        }
+        else
+        {
+            _error = response is null ? "Error Applying Coupon" : response.Message;
+        }
+    }
+
+    private async Task removeCoupon(CartDto cartDto)
+    {
+        _error = string.Empty;
+        if (await _js.InvokeAsync<bool>("confirm", "Are you sure deleting this item?"))
+        {
+            var response = await _cartService.RemoveCoupon(cartDto);
+            if (response is not null && response.IsSuccessful)
+            {
+                await load();
+            }
+            else
+            {
+                _error = response is null ? "Error Removing Coupon" : response.Message;
+            }
+        }
+    }
+
+}

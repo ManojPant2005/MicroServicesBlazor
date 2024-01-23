@@ -1,0 +1,77 @@
+﻿@page "/login"
+@using BlazorSeverApp.Data.Dtos.AuthApi
+@using BlazorSeverApp.Infrastructure.Authentication
+@using BlazorSeverApp.Services.IServices
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Newtonsoft.Json
+@inject IAuthService _authService
+@inject ProtectedLocalStorage _protectedLocalStorage
+@inject AuthenticationStateProvider _authStateProvider
+@inject NavigationManager _navigationManager
+
+<div class="row justify-content-md-center">
+    <div class="col col-md-6">
+        <h3>Login</h3>
+        <hr />
+
+        <EditForm Model="@_model" OnValidSubmit="@submit">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            @if (string.IsNullOrEmpty(_error) == false)
+            {
+                <p class="text-danger">@_error</p>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">UserName</label>
+                <InputText @bind-Value="_model.UserName" class="form-control" placeholder="UserName" />
+                <ValidationMessage For="@(()=> _model.UserName)" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <InputText type="password" @bind-Value="_model.Password" class="form-control" placeholder="Password" />
+                <ValidationMessage For="@(()=> _model.Password)" />
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@_isLoading">
+                Submit
+                @if (_isLoading)
+                {
+                    <div class="spinner-border text-light spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                }
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+
+@code {
+    private LoginRequestDto _model = new();
+    private string _error = string.Empty;
+    private bool _isLoading = false;
+
+    private async Task submit()
+    {
+        _isLoading = true;
+
+        _error = string.Empty;
+
+        var response = await _authService.Login(_model);
+        if (response is not null && response.IsSuccessful)
+        {
+            var loginResponse = JsonConvert.DeserializeObject<LoginResponseDto>(Convert.ToString(response.Result));
+
+            await _protectedLocalStorage.SetAsync(ApplicationConstants.AuthTokenName, loginResponse.Token);
+
+            ((AuthStateProvider)_authStateProvider).NotifyUserAuthentication(loginResponse.Token);
+
+            _navigationManager.NavigateTo("/", forceLoad: true);
+        }
+        else
+        {
+            _error = response is null ? "Error at login" : response.Message;
+        }
+    }
+}

@@ -1,0 +1,17 @@
+﻿@page "/logout"
+@using BlazorSeverApp.Infrastructure.Authentication
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedLocalStorage _protectedLocalStorage
+@inject AuthenticationStateProvider _authStateProvider
+@inject NavigationManager _navigationManager
+
+<h3>Logout</h3>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await _protectedLocalStorage.DeleteAsync(ApplicationConstants.AuthTokenName);
+        ((AuthStateProvider)_authStateProvider).NotifyUserLogout();
+        _navigationManager.NavigateTo("/", forceLoad: true);
+    }
+}

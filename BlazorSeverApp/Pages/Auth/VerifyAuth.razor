@@ -1,0 +1,65 @@
+﻿@page "/verifyauth"
+<h3>VerifyAuth</h3>
+@using System.Security.Claims
+
+@* https://learn.microsoft.com/en-us/aspnet/core/blazor/security/?view=aspnetcore-7.0 *@
+
+@if (_user!.Identity!.IsAuthenticated)
+{
+    <p class="text-success">User is Autheticated</p>
+    <p>Claims: </p>
+    <ul>
+        @foreach (var item in _user.Claims.ToList())
+        {
+            <li>@item.Type @item.Value</li>
+        }
+    </ul>
+
+    <ul>
+        <li>Id: @_claims.FirstOrDefault(x => x.Type == ClaimTypes.Sid)!.Value</li>
+        <li>UserName: @_claims.FirstOrDefault(x => x.Type == "name")!.Value</li>
+        <li>Email: @_claims.FirstOrDefault(x => x.Type == "email")!.Value</li>
+        <li>First Name: @_claims.FirstOrDefault(x => x.Type == "given_name")!.Value</li>
+        <li>Last Name: @_claims.FirstOrDefault(x => x.Type == "family_name")!.Value</li>
+        <li>Role: @_claims.FirstOrDefault(x => x.Type == "role")!.Value</li>
+    </ul>
+
+    <ul>
+        <li>IsInRole Admins: @_user.IsInRole(ApplicationConstants.Roles.Admins)</li>
+        <li>IsInRole Customers: @_user.IsInRole(ApplicationConstants.Roles.Customers)</li>
+    </ul>
+}
+else
+{
+    <p class="text-danger">User is NOT Autheticated</p>
+}
+
+<hr />
+<AuthorizeView>
+    <Authorized>
+        <p>Authorized @context.User.FindFirst("name")!.Value</p>
+        <p>Authorized @context.User.Identity?.Name</p>
+    </Authorized>
+    <NotAuthorized>Not Authorized</NotAuthorized>
+</AuthorizeView>
+
+<hr />
+<AuthorizeView Roles="Admins">
+    <Authorized>Admins Authorized</Authorized>
+    <NotAuthorized>Admins Not Authorized</NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState> AuthState { get; set; }
+
+    private ClaimsPrincipal? _user;
+    private List<Claim> _claims;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var authState = await AuthState;
+        _user = authState.User;
+        _claims = _user.Claims.ToList();
+    }
+}

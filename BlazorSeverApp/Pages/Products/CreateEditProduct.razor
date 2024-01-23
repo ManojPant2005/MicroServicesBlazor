@@ -1,0 +1,184 @@
+﻿@page "/product/{pagetype}"
+@page "/product/{pagetype}/{id:int}"
+@using BlazorSeverApp.Data.Dtos
+@using BlazorSeverApp.Services.IServices
+@using Newtonsoft.Json
+@inject IProductService _productService
+@inject AuthenticationStateProvider _authStateProvider
+@inject NavigationManager _navigationManager
+@* @attribute [Authorize] *@
+
+<PageTitle>@_title</PageTitle>
+
+    <h3>@_title</h3>
+
+@if (string.IsNullOrEmpty(_error) == false)
+{
+    <p class="text-danger">@_error</p>
+}
+
+<div>
+    <EditForm Model="@_model" OnValidSubmit="@submit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <fieldset disabled="@_disabled">
+            <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">Name</label>
+                <div class="col-sm-10">
+                    <InputText class="form-control" @bind-Value="_model.Name" />
+                    <ValidationMessage For="() => _model.Name" />
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">Price</label>
+                <div class="col-sm-10">
+                    <InputNumber class="form-control" @bind-Value="_model.Price" />
+                    <ValidationMessage For="() => _model.Price" />
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">Description</label>
+                <div class="col-sm-10">
+                    <InputText class="form-control" @bind-Value="_model.Description" />
+                    <ValidationMessage For="() => _model.Description" />
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">CategoryName</label>
+                <div class="col-sm-10">
+                    <InputText class="form-control" @bind-Value="_model.CategoryName" />
+                    <ValidationMessage For="() => _model.CategoryName" />
+                </div>
+            </div>
+
+            <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">ImageUrl</label>
+                <div class="col-sm-10">
+                    <InputText class="form-control" @bind-Value="_model.ImageUrl" />
+                    <ValidationMessage For="() => _model.ImageUrl" />
+                </div>
+            </div>
+        </fieldset>
+
+        @if (PageType == "details")
+        {
+            <div class="mb-3 row">
+                <label class="col-sm-2 col-form-label">Count</label>
+                <div class="col-sm-10">
+                    <InputNumber class="form-control" @bind-Value="_model.Count" />
+                    <ValidationMessage For="() => _model.Count" />
+                </div>
+            </div>
+        }
+
+        <div class="mb-3 row">
+            <div class="col-5 offset-2">
+                <a href="products" class="btn btn-light form-control">Back to List</a>
+            </div>
+            <div class="col-5">
+                @* @if (PageType != "details")
+                { *@
+                <button type="submit" class="btn btn-primary form-control">
+                    Submit
+                    @if (_isLoading)
+                    {
+                        <div class="spinner-border text-light spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    }
+                </button>
+                @* } *@
+            </div>
+        </div>
+
+    </EditForm>
+</div>
+
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Parameter] public string PageType { get; set; } = "create";
+
+    private string _title = "";
+    private ProductDto _model = new();
+    private bool _disabled { get; set; } = false;
+    private bool _isAdmin = false;
+    private string? _error = string.Empty;
+    private bool _isLoading = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var authStateProvider = await _authStateProvider.GetAuthenticationStateAsync();
+        var user = authStateProvider.User;
+        if (user.Identity!.IsAuthenticated)
+        {
+            _isAdmin = user.FindFirst("role")!.Value == "Admins";
+
+            PageType = PageType.ToLower();
+            if (PageType == "create")
+            {
+                _title = "Product Create";
+            }
+            else if (PageType == "edit")
+            {
+                _title = "Product Edit";
+                await load();
+            }
+            else if (PageType == "details")
+            {
+                _disabled = true;
+                _title = "Product Details";
+                await load();
+            }
+        }
+        else
+        {
+            _navigationManager.NavigateTo("login");
+        }
+
+    }
+
+    private async Task load()
+    {
+        var response = await _productService.GetById(Id);
+        if (response is not null && response.IsSuccessful)
+        {
+            _model = JsonConvert.DeserializeObject<ProductDto>(Convert.ToString(response.Result));
+        }
+    }
+
+    private async Task submit()
+    {
+        _isLoading = true;
+        _error = string.Empty;
+        if (PageType == "create")
+        {
+            var response = await _productService.Create(_model);
+            if (response is not null && response.IsSuccessful)
+            {
+                _navigationManager.NavigateTo("/products");
+            }
+            else
+            {
+                _error = response is null ? "Create Error" : response.Message;
+            }
+        }
+        else
+        // else if (PageType == "edit")
+        {
+            var response = await _productService.Update(_model);
+            if (response is not null && response.IsSuccessful)
+            {
+                _navigationManager.NavigateTo("/products");
+            }
+            else
+            {
+                _error = response is null ? "Create Error" : response.Message;
+            }
+        }
+    }
+}

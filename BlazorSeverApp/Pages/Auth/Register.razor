@@ -1,0 +1,109 @@
+﻿@page "/register"
+@using BlazorSeverApp.Data.Dtos.AuthApi
+@using BlazorSeverApp.Services.IServices
+@inject IAuthService _authService
+@inject NavigationManager _navigationManager
+<div>
+    <h3>Register</h3>
+    <hr />
+
+    <EditForm Model="@_model" OnValidSubmit="@submit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        @if (string.IsNullOrEmpty(_error) == false)
+        {
+            <p class="text-danger">@_error</p>
+        }
+
+        <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">UserName</label>
+            <div class="col-sm-10">
+                <InputText @bind-Value="_model.UserName" class="form-control" />
+                <ValidationMessage For="@(()=> _model.UserName)" />
+            </div>
+        </div>
+        <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">Email</label>
+            <div class="col-sm-10">
+                <InputText @bind-Value="_model.Email" class="form-control" />
+                <ValidationMessage For="@(()=> _model.Email)" />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">First Name</label>
+            <div class="col-sm-10">
+                <InputText @bind-Value="_model.FirstName" class="form-control" />
+                <ValidationMessage For="@(()=> _model.FirstName)" />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">Last Name</label>
+            <div class="col-sm-10">
+                <InputText @bind-Value="_model.LastName" class="form-control" />
+                <ValidationMessage For="@(()=> _model.LastName)" />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">PhoneNumber</label>
+            <div class="col-sm-10">
+                <InputText @bind-Value="_model.PhoneNumber" class="form-control" />
+                <ValidationMessage For="@(()=> _model.PhoneNumber)" />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">Password</label>
+            <div class="col-sm-10">
+                <InputText @bind-Value="_model.Password" class="form-control" />
+                <ValidationMessage For="@(()=> _model.Password)" />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <label class="col-sm-2 col-form-label">Role</label>
+            <div class="col-sm-10">
+                <InputSelect @bind-Value="_model.RoleName" class="form-select">
+                    <option value="" disabled selected>Please Select a Role ...</option>
+                    <option value="@ApplicationConstants.Roles.Admins">@ApplicationConstants.Roles.Admins</option>
+                    <option value="@ApplicationConstants.Roles.Customers">@ApplicationConstants.Roles.Customers</option>
+                </InputSelect>
+                <ValidationMessage For="@(()=> _model.RoleName)" />
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Register</button>
+    </EditForm>
+</div>
+
+@code {
+    private RegisterDto _model = new();
+    private string _error = string.Empty;
+
+    private async Task submit()
+    {
+        _error = string.Empty;
+
+        var response = await _authService.Register(_model);
+        if (response is not null && response.IsSuccessful)
+        {
+            var roleResponse = await _authService.AssignToRole(_model);
+            if (roleResponse is not null && roleResponse.IsSuccessful)
+            {
+                _navigationManager.NavigateTo("login");
+            }
+            else
+            {
+                _error = roleResponse is null ? "Error assigning user to role" : roleResponse.Message;
+            }
+        }
+        else
+        {
+            _error = response is null ? "Error registering user" : response.Message;
+        }
+
+    }
+}

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<Compile Remove="Services\IServices\ITokenProviderService.cs" />
+		<Compile Remove="Services\TokenCookieProviderService.cs" />
+		<Compile Remove="Services\TokenLocalStorageProviderService.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Cart.Api\CartApi.csproj" />
+	</ItemGroup>
+
+</Project>

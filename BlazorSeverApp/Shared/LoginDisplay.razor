@@ -1,0 +1,30 @@
+﻿@* @inject AuthenticationStateProvider _authState *@
+<AuthorizeView>
+    <Authorized>
+        <a href="">Hello @_userName</a>
+        <a href="LogOut">Log out</a>
+    </Authorized>
+    <NotAuthorized>
+        <a href="Register">Register</a>
+        <a href="Login">Log in</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    public Task<AuthenticationState?> _authState { get; set; }
+
+    private string? _userName;
+
+    // protected override async Task OnParametersSetAsync()
+    protected override async Task OnInitializedAsync()
+    {
+        var authstate = await _authState;
+        // var authstate = await _authState.GetAuthenticationStateAsync();
+        var user = authstate!.User;
+        if (user.Identity.IsAuthenticated)
+        {
+            _userName = user!.FindFirst("name")!.Value;
+        }
+    }
+}

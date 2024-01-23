@@ -1,0 +1,188 @@
+﻿@page "/products"
+@using BlazorSeverApp.Data.Dtos
+@using BlazorSeverApp.Services.IServices
+@using System.Security.Claims
+@using Newtonsoft.Json
+@inject IProductService _productService
+@inject ICartService _cartService
+@inject AuthenticationStateProvider _authStateProvider
+@inject NavigationManager _navigationManager
+@inject IJSRuntime _js
+@* @attribute [Authorize] *@
+
+<PageTitle>@_title</PageTitle>
+
+    <h3>@_title</h3>
+
+@if (string.IsNullOrEmpty(_error) == false)
+{
+    <p class="text-danger">@_error</p>
+}
+
+@if (_items == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover table-sm">
+            <caption>List of products</caption>
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Description</th>
+                    <th>CategoryName</th>
+                    <th>Image</th>
+                    <th>Count</th>
+                    <th>
+                        <a class="btn btn-sm btn-primary" href="product/create" title="Create">
+                            <span class="oi oi-plus" aria-hidden="true"></span>
+                        </a>
+                    </th>
+                    <th>Cart</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    <tr>
+                        <td>@item.Id</td>
+                        <td>@item.Name</td>
+                        <td>@item.Price.ToString("c")</td>
+                        <td>@((MarkupString)item.Description)</td>
+                        <td>@item.CategoryName</td>
+                        <td>@item.ImageUrl</td>
+                        <td>@item.Count</td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" @onclick="@(async ()=> await delete(item.Id))" title="Delete">
+                                <span class="oi oi-trash" aria-hidden="true"></span>
+                            </button>
+                            <a class="btn btn-sm btn-warning" title="Edit" href="product/edit/@item.Id">
+                                <span class="oi oi-pencil" aria-hidden="true"></span>
+                            </a>
+                            <a class="btn btn-sm btn-info" title="Details" href="product/details/@item.Id">
+                                <span class="oi oi-eye" aria-hidden="true"></span>
+                            </a>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-success" title="Add to Cart"
+                                    @onclick="@(async() => await addToCart(item.Id))">
+                                <span class="oi oi-plus" aria-hidden="true"></span>
+                            </button>
+                            <button class="btn btn-sm btn-danger" title="Remove from Cart"
+                                    @onclick="@(async() => await removeFromCart(item.Id))">
+                                <span class="oi oi-minus" aria-hidden="true"></span>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private string _title = "Products Index";
+    private List<ProductDto>? _items;
+    private ClaimsPrincipal? _user;
+    private bool _isAdmin = false;
+    private string? _error = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authStateProvider = await _authStateProvider.GetAuthenticationStateAsync();
+        _user = authStateProvider.User;
+        if (_user.Identity!.IsAuthenticated)
+        {
+            _isAdmin = _user.FindFirst("role")!.Value == "Admins";
+            await load();
+        }
+        else
+        {
+            _navigationManager.NavigateTo("login");
+        }
+    }
+
+    private async Task load()
+    {
+        _error = string.Empty;
+        var response = await _productService.GetAll();
+        if (response is not null && response.IsSuccessful)
+        {
+            _items = JsonConvert.DeserializeObject<List<ProductDto>>(Convert.ToString(response.Result));
+        }
+        else
+        {
+            _error = response is null ? "Error loading data" : response.Message;
+        }
+    }
+
+    private async Task delete(int id)
+    {
+        if (await _js.InvokeAsync<bool>("confirm", "Are you sure you want to delete this item?"))
+        {
+            var response = await _productService.Delete(id);
+            if (response is not null && response.IsSuccessful)
+            {
+                await load();
+            }
+        }
+    }
+
+    private async Task addToCart(int productId)
+    {
+        _error = string.Empty;
+        var cartDto = new CartDto
+            {
+                UserId = _user!.FindFirst(ClaimTypes.Sid)!.Value,
+                CartDetailDtos = new List<CartDetailDto>
+            {
+                new CartDetailDto
+                {
+                    Count = 1,
+                    ProductId = productId
+                }
+            }
+            };
+
+        var response = await _cartService.CreateEdit(cartDto);
+        if (response is not null && response.IsSuccessful)
+        {
+            await _js.InvokeVoidAsync("alert", "product was successfully added to Cart");
+        }
+        else
+        {
+            _error = response.Message;
+        }
+    }
+
+    private async Task removeFromCart(int productId)
+    {
+        _error = string.Empty;
+        var cartDto = new CartDto
+            {
+                UserId = _user!.FindFirst(ClaimTypes.Sid)!.Value,
+                CartDetailDtos = new List<CartDetailDto>
+            {
+                new CartDetailDto
+                {
+                    Count = -1,
+                    ProductId = productId
+                }
+            }
+            };
+
+        var response = await _cartService.CreateEdit(cartDto);
+        if (response is not null && response.IsSuccessful)
+        {
+            await _js.InvokeVoidAsync("alert", "product was successfully removed from Cart");
+        }
+        else
+        {
+            _error = response.Message;
+        }
+    }
+}
